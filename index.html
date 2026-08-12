@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MY ASSET v2.1 - 자산 관리 & 가격 그래프 일지</title>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-main: #f2f4f6;
+            --card-bg: #ffffff;
+            --text-primary: #191f28;
+            --text-secondary: #8b95a1;
+            --text-muted: #b0b8c1;
+            --brand-blue: #3182f6;
+            --brand-blue-light: #e8f3ff;
+            --accent-green: #059669;
+            --accent-red: #f04452;
+            --border-line: #f2f4f6;
+            --radius-card: 20px;
+            --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.04);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", Roboto, sans-serif; }
+        body { background-color: var(--bg-main); color: var(--text-primary); padding: 24px 16px; -webkit-font-smoothing: antialiased; }
+        .container { max-width: 840px; margin: 0 auto; }
+
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        header h1 { font-size: 1.4rem; font-weight: 800; color: var(--text-primary); letter-spacing: -0.5px; }
+        .sync-badge { font-size: 0.8rem; background: var(--card-bg); padding: 6px 12px; border-radius: 20px; color: var(--text-secondary); box-shadow: var(--shadow-card); }
+
+        .config-card { background: var(--card-bg); border-radius: var(--radius-card); padding: 16px 20px; margin-bottom: 20px; box-shadow: var(--shadow-card); display: flex; gap: 10px; align-items: center; }
+        .config-card input { flex: 1; padding: 10px 14px; border: 1px solid #e5e8eb; border-radius: 10px; font-size: 0.88rem; outline: none; }
+        .config-card input:focus { border-color: var(--brand-blue); }
+
+        .card { background: var(--card-bg); border-radius: var(--radius-card); padding: 24px; margin-bottom: 20px; box-shadow: var(--shadow-card); }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .card-title { font-size: 1.05rem; font-weight: 700; color: var(--text-primary); }
+
+        .btn { border: none; border-radius: 12px; padding: 10px 18px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+        .btn-primary { background: var(--brand-blue); color: white; }
+        .btn-primary:hover { background: #1b64da; }
+        .btn-sub { background: var(--brand-blue-light); color: var(--brand-blue); }
+        .btn-sm { padding: 6px 12px; font-size: 0.8rem; border-radius: 8px; }
+
+        .asset-summary .label { font-size: 0.88rem; color: var(--text-secondary); font-weight: 500; }
+        .asset-summary .total-val { font-size: 2.2rem; font-weight: 800; margin: 6px 0 12px 0; letter-spacing: -0.8px; }
+        .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; background: #f9fafb; padding: 16px; border-radius: 14px; }
+        .summary-item .sub-label { font-size: 0.78rem; color: var(--text-secondary); }
+        .summary-item .sub-val { font-size: 1rem; font-weight: 700; margin-top: 2px; }
+
+        .text-plus { color: var(--accent-red); }
+        .text-minus { color: var(--brand-blue); }
+
+        .chart-flex { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+        .donut-container { width: 140px; height: 140px; position: relative; }
+        .rebal-info { flex: 1; min-width: 240px; }
+        .rebal-box { background: var(--brand-blue-light); border-radius: 14px; padding: 16px; margin-top: 10px; }
+        .rebal-box .title { font-size: 0.85rem; color: var(--brand-blue); font-weight: 700; }
+        .rebal-box .desc { font-size: 1.1rem; font-weight: 800; color: var(--text-primary); margin-top: 4px; }
+
+        .table-responsive { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem; }
+        th { color: var(--text-secondary); font-weight: 600; padding: 12px 8px; border-bottom: 1px solid var(--border-line); }
+        td { padding: 14px 8px; border-bottom: 1px solid var(--border-line); color: var(--text-primary); font-weight: 500; }
+        .badge { display: inline-block; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; }
+        .badge-stock { background: #eef2ff; color: #4f46e5; }
+        .badge-cash { background: #f3f4f6; color: #4b5563; }
+
+        /* 탭 및 필터 컨트롤 */
+        .log-controls { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; border-bottom: 2px solid var(--border-line); padding-bottom: 12px; }
+        .tab-container { display: flex; gap: 8px; }
+        .tab-btn { background: none; border: none; font-size: 0.9rem; font-weight: 700; color: var(--text-secondary); padding: 6px 12px; border-radius: 8px; cursor: pointer; }
+        .tab-btn.active { background: var(--brand-blue-light); color: var(--brand-blue); }
+        .filter-select { padding: 6px 12px; border: 1px solid #e5e8eb; border-radius: 8px; font-size: 0.85rem; outline: none; background: white; font-weight: 600; }
+
+        /* 가격 그래프 영역 */
+        .line-chart-container { width: 100%; height: 260px; margin-bottom: 20px; position: relative; }
+
+        /* 모달 창 */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); display: none; justify-content: center; align-items: center; z-index: 999; }
+        .modal { background: white; padding: 24px; border-radius: 20px; width: 90%; max-width: 400px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .modal h3 { font-size: 1.1rem; margin-bottom: 16px; }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 4px; font-weight: 600; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px; border: 1px solid #e5e8eb; border-radius: 8px; font-size: 0.9rem; outline: none; }
+        .form-group textarea { resize: vertical; height: 60px; }
+        .modal-actions { display: flex; gap: 8px; margin-top: 20px; }
+        .modal-actions button { flex: 1; }</style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>MY ASSET v2.1</h1>
+            <div class="sync-badge" id="syncStatus">● 연결 준비됨</div>
+        </header>
+
+        <div class="config-card">
+            <input type="text" id="gasUrl" placeholder="Google Apps Script 웹 앱 URL 입력">
+            <button class="btn btn-primary" onclick="fetchData()">동기화</button>
+        </div>
+
+        <!-- 전체 자산 요약 -->
+        <div class="card asset-summary">
+            <div class="label">총 평가 자산</div>
+            <div class="total-val" id="totalValue">0 원</div>
+            <div class="summary-grid">
+                <div class="summary-item">
+                    <div class="sub-label">총 투자 원금</div>
+                    <div class="sub-val" id="totalPrincipal">0 원</div>
+                </div>
+                <div class="summary-item">
+                    <div class="sub-label">총 평가 손익 (수익률)</div>
+                    <div class="sub-val" id="totalProfit">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 리밸런싱 -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">포트폴리오 리밸런싱 (75 : 25)</div>
+            </div>
+            <div class="chart-flex">
+                <div class="donut-container">
+                    <canvas id="ratioChart"></canvas>
+                </div>
+                <div class="rebal-info">
+                    <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                        현재 비중: 주식 <strong id="stockRatioText">0%</strong> / 현금 <strong id="cashRatioText">0%</strong>
+                    </div>
+                    <div class="rebal-box">
+                        <div class="title" id="rebalTitle">목표 리밸런싱 진단</div>
+                        <div class="desc" id="rebalDesc">데이터 수집 중...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 개별 자산 관리 -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">개별 자산 현황</div>
+                <button class="btn btn-sub btn-sm" onclick="openAssetModal()">+ 자산 추가</button>
+            </div>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>자산명</th>
+                            <th>구분</th>
+                            <th>매수 원금</th>
+                            <th>평가 금액</th>
+                            <th>손익 (수익률)</th>
+                            <th>관리</th>
+                        </tr>
+                    </thead>
+                    <tbody id="assetTableBody">
+                        <tr><td colspan="6" style="text-align:center; color: var(--text-muted); padding: 20px;">자산 데이터를 불러와주세요.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 자산 가격 추이 그래프 & 일지 -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">자산 가격 추이 & 코멘트 일지</div>
+                <button class="btn btn-primary btn-sm" onclick="openLogModal()">+ 가격/코멘트 기록</button>
+            </div>
+
+            <!-- 컨트롤 바 (조회 기간 탭 + 자산 선택 필터) -->
+            <div class="log-controls">
+                <div class="tab-container">
+                    <button class="tab-btn active" id="tab-daily" onclick="switchTab('daily')">일별</button>
+                    <button class="tab-btn" id="tab-weekly" onclick="switchTab('weekly')">주별</button>
+                    <button class="tab-btn" id="tab-monthly" onclick="switchTab('monthly')">월별</button>
+                </div>
+                <div>
+                    <select id="assetFilterSelect" class="filter-select" onchange="renderLogsAndChart()">
+                        <option value="ALL">전체 자산 보기</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- 자산 가격 추이 선 그래프 -->
+            <div class="line-chart-container">
+                <canvas id="priceLineChart"></canvas>
+            </div>
+
+            <!-- 일지 목록 테이블 -->
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>날짜</th>
+                            <th>자산명</th>
+                            <th>입력 가격(종가)</th>
+                            <th>코멘트</th>
+                            <th>삭제</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logTableBody">
+                        <tr><td colspan="5" style="text-align:center; color: var(--text-muted); padding: 20px;">기록된 내용이 없습니다.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 1. 자산 추가/수정 모달 -->
+    <div class="modal-overlay" id="assetModal">
+        <div class="modal">
+            <h3 id="modalTitle">새 자산 추가</h3>
+            <input type="hidden" id="editAssetId">
+            <div class="form-group">
+                <label>자산명</label>
+                <input type="text" id="assetName" placeholder="예: AAPL, 미국 S&P500, CMA">
+            </div>
+            <div class="form-group">
+                <label>카테고리</label>
+                <select id="assetCategory" onchange="toggleTickerInput()">
+                    <option value="Stock">주식 (Stock)</option>
+                    <option value="Cash">현금 (Cash)</option>
+                </select>
+            </div>
+            <div class="form-group" id="tickerGroup">
+                <label>야후 파이낸스 Ticker</label>
+                <input type="text" id="assetTicker" placeholder="예: VOO, NVDA, 005930.KS">
+            </div>
+            <div class="form-group">
+                <label>매수 원금 (KRW)</label>
+                <input type="number" id="assetPrincipal" placeholder="0">
+            </div>
+            <div class="form-group" id="quantityGroup">
+                <label>보유 수량 (주)</label>
+                <input type="number" id="assetQuantity" placeholder="0" step="any">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-sub" onclick="closeModal('assetModal')">취소</button>
+                <button class="btn btn-primary" onclick="saveAsset()">저장하기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 가격/코멘트 기록 모달 -->
+    <div class="modal-overlay" id="logModal">
+        <div class="modal">
+            <h3>자산 시세 & 코멘트 입력</h3>
+            <div class="form-group">
+                <label>기록 날짜</label>
+                <input type="date" id="logDate">
+            </div>
+            <div class="form-group">
+                <label>대상 자산 선택</label>
+                <select id="logAssetSelect"></select>
+            </div>
+            <div class="form-group">
+                <label>단가 / 종가 (KRW)</label>
+                <input type="number" id="logPrice" placeholder="0">
+            </div>
+            <div class="form-group">
+                <label>코멘트 (메모)</label>
+                <textarea id="logComment" placeholder="오늘의 투자 이유, 이슈 등을 간단히 적어보세요."></textarea>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-sub" onclick="closeModal('logModal')">취소</button>
+                <button class="btn btn-primary" onclick="saveLog()">기록하기</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ratioChartObj = null;
+        let lineChartObj = null;
+        let globalAssetsData = [];
+        let globalLogsData = [];
+        let currentTab = 'daily';
+
+        function formatKRW(val){
+            return new Intl.NumberFormat('ko-KR').format(Math.round(val)) + ' 원';
+        }
+
+        function toggleTickerInput(){
+            const cat = document.getElementById('assetCategory').value;
+            if (cat === 'Cash') {
+                document.getElementById('tickerGroup').style.display = 'none';
+                document.getElementById('quantityGroup').style.display = 'none';
+            } else {
+                document.getElementById('tickerGroup').style.display = 'block';
+                document.getElementById('quantityGroup').style.display = 'block';
+            }
+        }
+
+        async function fetchData(){
+            const url = document.getElementById('gasUrl').value.trim();
+            const status = document.getElementById('syncStatus');
+            if (!url) return alert("Google Apps Script URL을 입력해 주세요.");
+
+            status.innerText = "● 동기화 중...";
+            try {
+                const res = await fetch(url);
+                const json = await res.json();
+
+                if (json.status === "success") {
+                    globalAssetsData = json.assets;
+                    globalLogsData = json.dailyLogs;
+                    updateFilterSelectOptions();
+                    renderDashboard(json.assets);
+                    status.innerText = "● 동기화 완료";
+                }
+            } catch (err) {
+                status.innerText = "● 동기화 실패";
+                alert("데이터 수집 중 오류가 발생했습니다.");
+            }
+        }
+
+        function updateFilterSelectOptions(){
+            const select = document.getElementById('assetFilterSelect');
+            const currentVal = select.value;
+            select.innerHTML = '<option value="ALL">전체 자산 보기</option>';
+            globalAssetsData.forEach(a => {
+                select.innerHTML += `<option value="${a.id}">${a.name}</option>`;
+            });
+            select.value = currentVal || "ALL";
+        }
+
+        function renderDashboard(assets){
+            let totalVal = 0, totalPrin = 0, stockVal = 0, cashVal = 0;
+
+            const tbody = document.getElementById('assetTableBody');
+            tbody.innerHTML = '';
+
+            if (assets.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: var(--text-muted); padding: 20px;">등록된 자산이 없습니다.</td></tr>';
+            }
+
+            assets.forEach(a => {
+                totalVal += a.currentValue;
+                totalPrin += a.principal;
+                if (a.category === 'Stock') stockVal += a.currentValue;
+                else cashVal += a.currentValue;
+
+                const profitClass = a.profit > 0 ? 'text-plus' : (a.profit < 0 ? 'text-minus' : '');
+                const profitSign = a.profit > 0 ? '+' : '';
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${a.name}</strong></td>
+                        <td><span class="badge ${a.category === 'Stock' ? 'badge-stock' : 'badge-cash'}">${a.category}</span></td>
+                        <td>${formatKRW(a.principal)}</td>
+                        <td><strong>${formatKRW(a.currentValue)}</strong></td>
+                        <td class="${profitClass}">${profitSign}${formatKRW(a.profit)} (${profitSign}${a.returnRate.toFixed(2)}%)</td>
+                        <td>
+                            <button class="btn btn-sub btn-sm" onclick='openAssetModal(${JSON.stringify(a)})'>수정</button>
+                            <button class="btn btn-sub btn-sm" style="color:var(--accent-red);" onclick="deleteAsset('${a.id}')">삭제</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            const totalProfit = totalVal - totalPrin;
+            const totalReturn = totalPrin > 0 ? (totalProfit / totalPrin) * 100 : 0;
+            const profitSign = totalProfit > 0 ? '+' : '';
+
+            document.getElementById('totalValue').innerText = formatKRW(totalVal);
+            document.getElementById('totalPrincipal').innerText = formatKRW(totalPrin);
+
+            const profitElem = document.getElementById('totalProfit');
+            profitElem.className = `sub-val ${totalProfit > 0 ? 'text-plus' : (totalProfit < 0 ? 'text-minus' : '')}`;
+            profitElem.innerText = `${profitSign}${formatKRW(totalProfit)} (${profitSign}${totalReturn.toFixed(2)}%)`;
+
+            renderRatioChart(stockVal, cashVal);
+            calculateRebalancing(totalVal, stockVal, cashVal);
+            renderLogsAndChart();
+        }
+
+        function calculateRebalancing(totalVal, stockVal, cashVal){
+            if (totalVal === 0) return;
+
+            const stockRatio = (stockVal / totalVal) * 100;
+            const cashRatio = (cashVal / totalVal) * 100;
+
+            document.getElementById('stockRatioText').innerText = stockRatio.toFixed(1) + '%';
+            document.getElementById('cashRatioText').innerText = cashRatio.toFixed(1) + '%';
+
+            const targetStock = totalVal * 0.75;
+            const diff = targetStock - stockVal;
+
+            const titleElem = document.getElementById('rebalTitle');
+            const descElem = document.getElementById('rebalDesc');
+
+            if (Math.abs(diff) < 100000) {
+                titleElem.innerText = "목표 비중 유지 중";
+                descElem.innerText = "현재 주식 75% : 현금 25% 비율이 이상적으로 유지되고 있습니다.";
+            } else if (diff > 0) {
+                titleElem.innerText = "주식 추가 매수 필요 (현금 ➔ 주식)";
+                descElem.innerText = `약 ${formatKRW(diff)} 만큼 주식을 추가 매수하세요.`;
+            } else {
+                titleElem.innerText = "주식 매도 및 현금 확보 필요";
+                descElem.innerText = `약 ${formatKRW(Math.abs(diff))} 만큼 주식을 매도하여 현금을 확보하세요.`;
+            }
+        }
+
+        function renderRatioChart(stock, cash){
+            const ctx = document.getElementById('ratioChart').getContext('2d');
+            if (ratioChartObj) ratioChartObj.destroy();
+
+            ratioChartObj = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['주식', '현금'],
+                    datasets: [{
+                        data: [stock, cash],
+                        backgroundColor: ['#3182f6', '#e5e8eb'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    cutout: '75%',
+                    plugins: { legend: { display: false } },
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        function switchTab(type){
+            currentTab = type;
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`tab-${type}`).classList.add('active');
+            renderLogsAndChart();
+        }
+
+        function getFilteredLogs(){
+            if (!globalLogsData) return [];
+            const selectedAssetId = document.getElementById('assetFilterSelect').value;
+            const now = new Date();
+
+            return globalLogsData.filter(log => {
+                // 자산 필터링
+                if (selectedAssetId !== 'ALL' && log.assetId !== selectedAssetId) {
+                    return false;
+                }
+                // 기간 필터링
+                const logDate = new Date(log.date);
+                if (currentTab === 'daily') return (now - logDate) / (1000 * 60 * 60 * 24) <= 30;
+                if (currentTab === 'weekly') return (now - logDate) / (1000 * 60 * 60 * 24) <= 84;
+                if (currentTab === 'monthly') return (now - logDate) / (1000 * 60 * 60 * 24) <= 365;
+                return true;
+            });
+        }
+
+        function renderLogsAndChart(){
+            const filtered = getFilteredLogs();
+
+            // 1. 선 그래프 렌더링
+            renderLineChart(filtered);
+
+            // 2. 일지 테이블 렌더링
+            const tbody = document.getElementById('logTableBody');
+            tbody.innerHTML = '';
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: var(--text-muted); padding: 20px;">조회할 수 있는 기록이 없습니다.</td></tr>';
+                return;
+            }
+
+            // 테이블 표시용 내림차순 정렬 (최신순)
+            const sortedTableData = [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+            sortedTableData.forEach(log => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${log.date}</td>
+                        <td><strong>${log.assetName}</strong></td>
+                        <td>${formatKRW(log.price)}</td>
+                        <td>${log.comment || '-'}</td>
+                        <td>
+                            <button class="btn btn-sub btn-sm" style="color:var(--accent-red);" onclick="deleteLog('${log.logId}')">삭제</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function renderLineChart(logs){
+            const ctx = document.getElementById('priceLineChart').getContext('2d');
+            if (lineChartObj) lineChartObj.destroy();
+
+            if (logs.length === 0) return;
+
+            // 차트 표시용 오름차순 정렬 (시간 순서대로)
+            const sortedChartData = [...logs].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            const selectedAssetId = document.getElementById('assetFilterSelect').value;
+
+            if (selectedAssetId !== 'ALL') {
+                // 특정 자산 선택 시 - 단일 선 그래프
+                const labels = sortedChartData.map(l => l.date);
+                const prices = sortedChartData.map(l => l.price);
+
+                lineChartObj = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: '가격 (KRW)',
+                            data: prices,
+                            borderColor: '#3182f6',
+                            backgroundColor: 'rgba(49, 130, 246, 0.08)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { grid: { display: false } },
+                            y: { grid: { color: '#f2f4f6' } }
+                        }
+                    }
+                });
+            } else {
+                // 전체 자산 선택 시 - 자산별 멀티 선 그래프
+                const dates = [...new Set(sortedChartData.map(l => l.date))];
+                const assetGroups = {};
+
+                sortedChartData.forEach(l => {
+                    if (!assetGroups[l.assetName]) assetGroups[l.assetName] = {};
+                    assetGroups[l.assetName][l.date] = l.price;
+                });
+
+                const colors = ['#3182f6', '#059669', '#f04452', '#8b5cf6', '#f59e0b', '#14b8a6'];
+                let colorIdx = 0;
+
+                const datasets = Object.keys(assetGroups).map(assetName => {
+                    const priceData = dates.map(d => assetGroups[assetName][d] || null);
+                    const color = colors[colorIdx % colors.length];
+                    colorIdx++;
+
+                    return {
+                        label: assetName,
+                        data: priceData,
+                        borderColor: color,
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        tension: 0.2,
+                        spanGaps: true
+                    };
+                });
+
+                lineChartObj = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels: dates, datasets: datasets },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom' } },
+                        scales: {
+                            x: { grid: { display: false } },
+                            y: { grid: { color: '#f2f4f6' } }
+                        }
+                    }
+                });
+            }
+        }
+
+        // 모달 관리
+        function openAssetModal(asset = null){
+            document.getElementById('assetModal').style.display = 'flex';
+            if (asset) {
+                document.getElementById('modalTitle').innerText = '자산 정보 수정';
+                document.getElementById('editAssetId').value = asset.id;
+                document.getElementById('assetName').value = asset.name;
+                document.getElementById('assetCategory').value = asset.category;
+                document.getElementById('assetTicker').value = asset.ticker;
+                document.getElementById('assetPrincipal').value = asset.principal;
+                document.getElementById('assetQuantity').value = asset.quantity;
+            } else {
+                document.getElementById('modalTitle').innerText = '새 자산 추가';
+                document.getElementById('editAssetId').value = '';
+                document.getElementById('assetName').value = '';
+                document.getElementById('assetCategory').value = 'Stock';
+                document.getElementById('assetTicker').value = '';
+                document.getElementById('assetPrincipal').value = '';
+                document.getElementById('assetQuantity').value = '';
+            }
+            toggleTickerInput();
+        }
+
+        function openLogModal(){
+            if (globalAssetsData.length === 0) {
+                return alert("먼저 등록된 자산이 있어야 기록할 수 있습니다.");
+            }
+            document.getElementById('logModal').style.display = 'flex';
+            document.getElementById('logDate').value = new Date().toISOString().split('T')[0];
+
+            const select = document.getElementById('logAssetSelect');
+            select.innerHTML = '';
+            globalAssetsData.forEach(a => {
+                select.innerHTML += `<option value="${a.id}|${a.name}">${a.name}</option>`;
+            });
+            document.getElementById('logPrice').value = '';
+            document.getElementById('logComment').value = '';
+        }
+
+        function closeModal(id){
+            document.getElementById(id).style.display = 'none';
+        }
+
+        async function saveAsset(){
+            const url = document.getElementById('gasUrl').value.trim();
+            const id = document.getElementById('editAssetId').value;
+
+            const payload = {
+                action: id ? 'UPDATE_ASSET' : 'ADD_ASSET',
+                id: id,
+                name: document.getElementById('assetName').value,
+                category: document.getElementById('assetCategory').value,
+                ticker: document.getElementById('assetTicker').value,
+                principal: parseFloat(document.getElementById('assetPrincipal').value) || 0,
+                quantity: parseFloat(document.getElementById('assetQuantity').value) || 0
+            };
+
+            closeModal('assetModal');
+            await fetch(url, { method: 'POST', body: JSON.stringify(payload) });
+            fetchData();
+        }
+
+        async function saveLog(){
+            const url = document.getElementById('gasUrl').value.trim();
+            const assetInfo = document.getElementById('logAssetSelect').value.split('|');
+
+            const payload = {
+                action: 'ADD_LOG',
+                date: document.getElementById('logDate').value,
+                assetId: assetInfo[0],
+                assetName: assetInfo[1],
+                price: parseFloat(document.getElementById('logPrice').value) || 0,
+                comment: document.getElementById('logComment').value
+            };
+
+            closeModal('logModal');
+            await fetch(url, { method: 'POST', body: JSON.stringify(payload) });
+            fetchData();
+        }
+
+        async function deleteAsset(id){
+            if (!confirm('정말 이 자산을 삭제하시겠습니까?')) return;
+            const url = document.getElementById('gasUrl').value.trim();
+            await fetch(url, { method: 'POST', body: JSON.stringify({ action: 'DELETE_ASSET', id: id }) });
+            fetchData();
+        }
+
+        async function deleteLog(logId){
+            if (!confirm('정말 이 기록을 삭제하시겠습니까?')) return;
+            const url = document.getElementById('gasUrl').value.trim();
+            await fetch(url, { method: 'POST', body: JSON.stringify({ action: 'DELETE_LOG', logId: logId }) });
+            fetchData();
+        }</script>
+</body>
+</html>

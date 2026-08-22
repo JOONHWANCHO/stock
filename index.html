@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MY ASSET v2.1 - 자산 관리 & 가격 그래프 일지</title>
+    <title>MY ASSET v3.0 - 다계좌 자산 관리 & 리밸런싱 대시보드</title>
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -20,10 +20,22 @@
             --border-line: #f2f4f6;
             --radius-card: 20px;
             --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.04);
+
+            /* 자산 유형 5종 색상 */
+            --cat-stock: #3182f6;
+            --cat-bitcoin: #f59e0b;
+            --cat-longbond: #10b981;
+            --cat-shortbond: #14b8a6;
+            --cat-gold: #eab308;
+
+            /* 계좌 색상 */
+            --acc-1: #3182f6;
+            --acc-2: #8b5cf6;
+            --acc-3: #f04452;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Segoe UI", Roboto, sans-serif; }
-        body { background-color: var(--bg-main); color: var(--text-primary); padding: 16px 12px; -webkit-font-smoothing: antialiased; }
+        body { background-color: var(--bg-main); color: var(--text-primary); padding: 16px 12px 90px 12px; -webkit-font-smoothing: antialiased; }
         .container { max-width: 840px; margin: 0 auto; }
 
         header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
@@ -38,6 +50,7 @@
         .card { background: var(--card-bg); border-radius: var(--radius-card); padding: 18px; margin-bottom: 16px; box-shadow: var(--shadow-card); }
         .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; gap: 8px; flex-wrap: wrap; }
         .card-title { font-size: 1rem; font-weight: 700; color: var(--text-primary); }
+        .card-title .scope-tag { font-size: 0.72rem; font-weight: 700; color: var(--brand-blue); background: var(--brand-blue-light); padding: 2px 8px; border-radius: 8px; margin-left: 6px; vertical-align: middle; }
 
         .btn { border: none; border-radius: 10px; padding: 10px 16px; font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: background 0.2s; white-space: nowrap; }
         .btn-primary { background: var(--brand-blue); color: white; }
@@ -54,6 +67,14 @@
 
         .text-plus { color: var(--accent-red); }
         .text-minus { color: var(--brand-blue); }
+
+        /* 계좌별 미니 요약 (전체 보기에서만 표시) */
+        .account-breakdown { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+        .account-chip { background: #f9fafb; border-radius: 12px; padding: 10px; text-align: center; cursor: pointer; border: 1px solid transparent; transition: border-color .15s; }
+        .account-chip:hover { border-color: var(--brand-blue-light); }
+        .account-chip .chip-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+        .account-chip .chip-label { font-size: 0.72rem; color: var(--text-secondary); font-weight: 700; }
+        .account-chip .chip-val { font-size: 0.85rem; font-weight: 800; margin-top: 2px; word-break: break-all; }
 
         /* 차트 레이아웃 최적화 */
         .chart-flex { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
@@ -75,8 +96,12 @@
         th { color: var(--text-secondary); font-weight: 600; padding: 10px 6px; border-bottom: 1px solid var(--border-line); }
         td { padding: 12px 6px; border-bottom: 1px solid var(--border-line); color: var(--text-primary); font-weight: 500; white-space: normal; }
         .badge { display: inline-block; padding: 3px 6px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; }
-        .badge-stock { background: #eef2ff; color: #4f46e5; }
-        .badge-cash { background: #f3f4f6; color: #4b5563; }
+        .badge-Stock { background: #eef2ff; color: #4f46e5; }
+        .badge-Bitcoin { background: #fff7e6; color: #b45309; }
+        .badge-LongBond { background: #e6f9f2; color: #047857; }
+        .badge-ShortBond { background: #e6fbf8; color: #0f766e; }
+        .badge-Gold { background: #fefce8; color: #a16207; }
+        .acc-badge { display: inline-block; padding: 3px 6px; border-radius: 6px; font-size: 0.7rem; font-weight: 700; color: #fff; }
 
         .log-controls { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--border-line); padding-bottom: 10px; }
         .tab-container { display: flex; gap: 4px; }
@@ -92,14 +117,29 @@
         .form-group { margin-bottom: 10px; }
         .form-group label { display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 4px; font-weight: 600; }
         .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px 10px; border: 1px solid #e5e8eb; border-radius: 8px; font-size: 0.85rem; outline: none; }
+        .form-group select:disabled { background: #f2f4f6; color: var(--text-secondary); }
         .form-group textarea { resize: vertical; height: 50px; }
         .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
         .modal-actions button { flex: 1; }
         .field-error { font-size: 0.72rem; color: var(--accent-red); margin-top: 4px; display: none; }
 
+        /* ===== 하단 계좌 전환 바 ===== */
+        .account-navbar {
+            position: fixed; left: 0; right: 0; bottom: 0; z-index: 900;
+            background: var(--card-bg); box-shadow: 0 -4px 20px rgba(0,0,0,0.06);
+            padding: 8px 10px calc(8px + env(safe-area-inset-bottom)) 10px;
+        }
+        .account-navbar-inner { max-width: 840px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+        .nav-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; border: none; background: none; padding: 8px 4px; border-radius: 12px; cursor: pointer; }
+        .nav-tab .nav-dot { width: 9px; height: 9px; border-radius: 50%; }
+        .nav-tab .nav-label { font-size: 0.72rem; font-weight: 700; color: var(--text-secondary); }
+        .nav-tab.active { background: var(--brand-blue-light); }
+        .nav-tab.active .nav-label { color: var(--brand-blue); }
+
         @media (max-width: 480px) {
             .summary-grid { grid-template-columns: 1fr; }
             .type-legend-grid { grid-template-columns: 1fr; }
+            .account-breakdown { grid-template-columns: 1fr; }
             .config-card { flex-direction: row; }
             .config-card input { width: 100%; }
             .config-card button { width: 100%; }
@@ -110,7 +150,7 @@
 
     <div class="container">
         <header>
-            <h1>MY ASSET v2.1</h1>
+            <h1>MY ASSET v3.0</h1>
             <div class="sync-badge" id="syncStatus">● 연결 준비됨</div>
         </header>
 
@@ -126,7 +166,7 @@
 
         <!-- 전체 자산 요약 -->
         <div class="card asset-summary">
-            <div class="label">총 평가 자산</div>
+            <div class="label">총 평가 자산 <span class="scope-tag" id="scopeTag">전체</span></div>
             <div class="total-val" id="totalValue">0 원</div>
             <div class="summary-grid">
                 <div class="summary-item">
@@ -138,6 +178,8 @@
                     <div class="sub-val" id="totalProfit">-</div>
                 </div>
             </div>
+            <!-- 전체 보기일 때만 계좌별 미니 요약 표시 -->
+            <div class="account-breakdown" id="accountBreakdown" style="display:none;"></div>
         </div>
 
         <!-- 자산 유형별 구성 비중 -->
@@ -151,20 +193,24 @@
                 </div>
                 <div class="type-legend-grid">
                     <div class="legend-item">
-                        <span class="legend-label"><span class="legend-dot" style="background:#3182f6;"></span>주식</span>
+                        <span class="legend-label"><span class="legend-dot" style="background:var(--cat-stock);"></span>주식</span>
                         <span class="legend-val" id="legendStock">0%</span>
                     </div>
                     <div class="legend-item">
-                        <span class="legend-label"><span class="legend-dot" style="background:#f59e0b;"></span>비트코인</span>
-                        <span class="legend-val" id="legendBtc">0%</span>
+                        <span class="legend-label"><span class="legend-dot" style="background:var(--cat-bitcoin);"></span>비트코인</span>
+                        <span class="legend-val" id="legendBitcoin">0%</span>
                     </div>
                     <div class="legend-item">
-                        <span class="legend-label"><span class="legend-dot" style="background:#10b981;"></span>채권</span>
-                        <span class="legend-val" id="legendBond">0%</span>
+                        <span class="legend-label"><span class="legend-dot" style="background:var(--cat-longbond);"></span>장기채권</span>
+                        <span class="legend-val" id="legendLongBond">0%</span>
                     </div>
                     <div class="legend-item">
-                        <span class="legend-label"><span class="legend-dot" style="background:#8b95a1;"></span>현금</span>
-                        <span class="legend-val" id="legendCash">0%</span>
+                        <span class="legend-label"><span class="legend-dot" style="background:var(--cat-shortbond);"></span>단기채권</span>
+                        <span class="legend-val" id="legendShortBond">0%</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-label"><span class="legend-dot" style="background:var(--cat-gold);"></span>금</span>
+                        <span class="legend-val" id="legendGold">0%</span>
                     </div>
                 </div>
             </div>
@@ -181,7 +227,7 @@
                 </div>
                 <div class="rebal-info">
                     <div style="font-size: 0.8rem; color: var(--text-secondary);">
-                        현재 비중: 위험자산 <strong id="stockRatioText">0%</strong> / 안전자산(현금) <strong id="cashRatioText">0%</strong>
+                        현재 비중: 위험자산(주식·비트코인) <strong id="stockRatioText">0%</strong> / 안전자산(채권·금) <strong id="cashRatioText">0%</strong>
                     </div>
                     <div class="rebal-box">
                         <div class="title" id="rebalTitle">목표 리밸런싱 진단</div>
@@ -200,9 +246,10 @@
             <div class="table-responsive">
                 <table>
                     <thead>
-                        <tr>
+                        <tr id="assetTableHeadRow">
                             <th>자산명</th>
                             <th>구분</th>
+                            <th class="col-account">계좌</th>
                             <th>매수 원금</th>
                             <th>평가 금액</th>
                             <th>손익 (수익률)</th>
@@ -210,7 +257,7 @@
                         </tr>
                     </thead>
                     <tbody id="assetTableBody">
-                        <tr><td colspan="6" style="text-align:center; color: var(--text-muted); padding: 16px;">자산 데이터를 불러와주세요.</td></tr>
+                        <tr><td colspan="7" style="text-align:center; color: var(--text-muted); padding: 16px;">자산 데이터를 불러와주세요.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -246,13 +293,14 @@
                         <tr>
                             <th>날짜</th>
                             <th>자산명</th>
+                            <th class="col-account">계좌</th>
                             <th>입력 가격(종가)</th>
                             <th>코멘트</th>
                             <th>삭제</th>
                         </tr>
                     </thead>
                     <tbody id="logTableBody">
-                        <tr><td colspan="5" style="text-align:center; color: var(--text-muted); padding: 16px;">기록된 내용이 없습니다.</td></tr>
+                        <tr><td colspan="6" style="text-align:center; color: var(--text-muted); padding: 16px;">기록된 내용이 없습니다.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -265,19 +313,30 @@
             <h3 id="modalTitle">새 자산 추가</h3>
             <input type="hidden" id="editAssetId">
             <div class="form-group">
+                <label>계좌</label>
+                <select id="assetAccount">
+                    <option value="1">1번 계좌</option>
+                    <option value="2">2번 계좌</option>
+                    <option value="3">3번 계좌</option>
+                </select>
+            </div>
+            <div class="form-group">
                 <label>자산명</label>
-                <input type="text" id="assetName" maxlength="100" placeholder="예: AAPL, 비트코인, 미국30년국채">
+                <input type="text" id="assetName" maxlength="100" placeholder="예: AAPL, 비트코인, 미국30년국채, KRX금현물">
             </div>
             <div class="form-group">
                 <label>카테고리</label>
-                <select id="assetCategory" onchange="toggleTickerInput()">
+                <select id="assetCategory">
                     <option value="Stock">주식 (Stock)</option>
-                    <option value="Cash">현금 (Cash)</option>
+                    <option value="Bitcoin">비트코인 (Bitcoin)</option>
+                    <option value="LongBond">장기채권 (Long-term Bond)</option>
+                    <option value="ShortBond">단기채권 (Short-term Bond)</option>
+                    <option value="Gold">금 (Gold)</option>
                 </select>
             </div>
             <div class="form-group" id="tickerGroup">
                 <label>야후 파이낸스 Ticker</label>
-                <input type="text" id="assetTicker" maxlength="15" placeholder="예: BTC-USD, TLT, 360750.KS">
+                <input type="text" id="assetTicker" maxlength="15" placeholder="예: BTC-USD, TLT, SHY, GLD, 360750.KS">
             </div>
             <div class="form-group">
                 <label>매수 원금 (KRW)</label>
@@ -321,14 +380,41 @@
         </div>
     </div>
 
+    <!-- 3. 하단 계좌 전환 바 -->
+    <div class="account-navbar">
+        <div class="account-navbar-inner" id="accountNavbar">
+            <button class="nav-tab active" data-account="ALL" onclick="switchAccount('ALL')">
+                <span class="nav-dot" style="background:var(--text-secondary);"></span>
+                <span class="nav-label">전체</span>
+            </button>
+            <button class="nav-tab" data-account="1" onclick="switchAccount('1')">
+                <span class="nav-dot" style="background:var(--acc-1);"></span>
+                <span class="nav-label">1번 계좌</span>
+            </button>
+            <button class="nav-tab" data-account="2" onclick="switchAccount('2')">
+                <span class="nav-dot" style="background:var(--acc-2);"></span>
+                <span class="nav-label">2번 계좌</span>
+            </button>
+            <button class="nav-tab" data-account="3" onclick="switchAccount('3')">
+                <span class="nav-dot" style="background:var(--acc-3);"></span>
+                <span class="nav-label">3번 계좌</span>
+            </button>
+        </div>
+    </div>
+
     <script>
         let ratioChartObj = null;
         let categoryChartObj = null;
         let lineChartObj = null;
-        let globalAssetsData = [];
+        let globalAssetsData = [];   // account=ALL 로 받아온 전체 원본 데이터
         let globalLogsData = [];
         let assetsById = {};
         let currentTab = 'daily';
+        let currentAccount = 'ALL';  // 'ALL' | '1' | '2' | '3'
+
+        const ACCOUNT_LABELS = { '1': '1번 계좌', '2': '2번 계좌', '3': '3번 계좌' };
+        const ACCOUNT_COLORS = { '1': 'var(--acc-1)', '2': 'var(--acc-2)', '3': 'var(--acc-3)' };
+        const CATEGORY_LABELS = { Stock: '주식', Bitcoin: '비트코인', LongBond: '장기채권', ShortBond: '단기채권', Gold: '금' };
 
         // ===================== 보안 유틸 =====================
 
@@ -377,18 +463,41 @@
             return new Intl.NumberFormat('ko-KR').format(Math.round(val)) + ' 원';
         }
 
-        function toggleTickerInput(){
-            const cat = document.getElementById('assetCategory').value;
-            if (cat === 'Cash') {
-                document.getElementById('tickerGroup').style.display = 'none';
-                document.getElementById('quantityGroup').style.display = 'none';
-            } else {
-                document.getElementById('tickerGroup').style.display = 'block';
-                document.getElementById('quantityGroup').style.display = 'block';
-            }
+        // ===================== 계좌 전환 =====================
+
+        function switchAccount(accountId){
+            currentAccount = accountId;
+            document.querySelectorAll('.nav-tab').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.account === accountId);
+            });
+
+            const scopeTag = document.getElementById('scopeTag');
+            scopeTag.innerText = accountId === 'ALL' ? '전체' : ACCOUNT_LABELS[accountId];
+
+            document.getElementById('accountBreakdown').style.display = (accountId === 'ALL') ? 'grid' : 'none';
+
+            // 계좌 열 표시 여부 (전체 보기일 때만 표시)
+            document.querySelectorAll('.col-account').forEach(el => {
+                el.style.display = (accountId === 'ALL') ? '' : 'none';
+            });
+
+            updateFilterSelectOptions();
+            renderDashboard(getVisibleAssets());
+        }
+
+        function getVisibleAssets(){
+            if (currentAccount === 'ALL') return globalAssetsData;
+            return globalAssetsData.filter(a => a.account === currentAccount);
+        }
+
+        function getVisibleLogs(){
+            if (currentAccount === 'ALL') return globalLogsData;
+            return globalLogsData.filter(l => l.account === currentAccount);
         }
 
         // ===================== 데이터 조회 =====================
+        // 항상 account=ALL 로 전체 계좌 데이터를 받아온 뒤, 화면에서는 선택된 계좌 탭에 맞춰 필터링합니다.
+        // (하단 계좌 탭 전환 시마다 서버를 재호출하지 않아 더 빠르고, API 호출 빈도도 절약됩니다.)
 
         async function fetchData(){
             const { url, token } = getConfig();
@@ -402,7 +511,7 @@
 
             try {
                 const sep = url.includes('?') ? '&' : '?';
-                const res = await fetch(url + sep + 'token=' + encodeURIComponent(token));
+                const res = await fetch(url + sep + 'token=' + encodeURIComponent(token) + '&account=ALL');
                 if (!res.ok) throw new Error('HTTP ' + res.status);
                 const json = await res.json();
 
@@ -413,7 +522,7 @@
                     globalAssetsData.forEach(a => { assetsById[a.id] = a; });
 
                     updateFilterSelectOptions();
-                    renderDashboard(globalAssetsData);
+                    renderDashboard(getVisibleAssets());
                     status.innerText = "● 동기화 완료";
                 } else {
                     status.innerText = "● 동기화 실패";
@@ -454,53 +563,53 @@
             const select = document.getElementById('assetFilterSelect');
             const currentVal = select.value;
             select.innerHTML = '<option value="ALL">전체 자산 보기</option>';
-            globalAssetsData.forEach(a => {
+            getVisibleAssets().forEach(a => {
                 const opt = document.createElement('option');
                 opt.value = a.id;
-                opt.textContent = a.name; // textContent라서 이스케이프 불필요
+                opt.textContent = (currentAccount === 'ALL' ? `[${ACCOUNT_LABELS[a.account]}] ` : '') + a.name; // textContent라서 이스케이프 불필요
                 select.appendChild(opt);
             });
             select.value = currentVal || "ALL";
+            if (select.value !== currentVal) select.value = "ALL";
         }
 
         // ===================== 렌더링 =====================
 
         function renderDashboard(assets){
             let totalVal = 0, totalPrin = 0;
-            let stockVal = 0, btcVal = 0, bondVal = 0, cashVal = 0;
+            let stockVal = 0, btcVal = 0, longBondVal = 0, shortBondVal = 0, goldVal = 0;
+            const accTotals = { '1': 0, '2': 0, '3': 0 };
 
             const tbody = document.getElementById('assetTableBody');
             tbody.innerHTML = '';
 
             if (assets.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: var(--text-muted); padding: 16px;">등록된 자산이 없습니다.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color: var(--text-muted); padding: 16px;">등록된 자산이 없습니다.</td></tr>';
             }
 
             assets.forEach(a => {
                 totalVal += a.currentValue;
                 totalPrin += a.principal;
+                if (accTotals.hasOwnProperty(a.account)) accTotals[a.account] += a.currentValue;
 
-                const ticker = (a.ticker || '').toUpperCase();
-                const name = (a.name || '').toLowerCase();
-
-                if (a.category === 'Cash') {
-                    cashVal += a.currentValue;
-                } else if (ticker.includes('BTC') || name.includes('비트코인') || name.includes('bitcoin')) {
-                    btcVal += a.currentValue;
-                } else if (ticker === 'TLT' || ticker === 'SHY' || name.includes('채권') || name.includes('국채')) {
-                    bondVal += a.currentValue;
-                } else {
-                    stockVal += a.currentValue;
+                switch (a.category) {
+                    case 'Bitcoin': btcVal += a.currentValue; break;
+                    case 'LongBond': longBondVal += a.currentValue; break;
+                    case 'ShortBond': shortBondVal += a.currentValue; break;
+                    case 'Gold': goldVal += a.currentValue; break;
+                    default: stockVal += a.currentValue; break; // Stock 및 미분류
                 }
 
                 const profitClass = a.profit > 0 ? 'text-plus' : (a.profit < 0 ? 'text-minus' : '');
                 const profitSign = a.profit > 0 ? '+' : '';
                 const returnRate = Number(a.returnRate) || 0;
+                const catLabel = CATEGORY_LABELS[a.category] || a.category;
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td><strong>${escapeHtml(a.name)}</strong></td>
-                    <td><span class="badge ${a.category === 'Stock' ? 'badge-stock' : 'badge-cash'}">${escapeHtml(a.category)}</span></td>
+                    <td><span class="badge badge-${escapeHtml(a.category)}">${escapeHtml(catLabel)}</span></td>
+                    <td class="col-account" style="display:${currentAccount === 'ALL' ? '' : 'none'};"><span class="acc-badge" style="background:${ACCOUNT_COLORS[a.account] || '#8b95a1'};">${escapeHtml(ACCOUNT_LABELS[a.account] || '-')}</span></td>
                     <td>${formatKRW(a.principal)}</td>
                     <td><strong>${formatKRW(a.currentValue)}</strong></td>
                     <td class="${profitClass}">${profitSign}${formatKRW(a.profit)} (${profitSign}${returnRate.toFixed(2)}%)</td>
@@ -531,36 +640,60 @@
             profitElem.className = `sub-val ${totalProfit > 0 ? 'text-plus' : (totalProfit < 0 ? 'text-minus' : '')}`;
             profitElem.innerText = `${profitSign}${formatKRW(totalProfit)} (${profitSign}${totalReturn.toFixed(2)}%)`;
 
-            renderCategoryChart(totalVal, stockVal, btcVal, bondVal, cashVal);
+            renderAccountBreakdown(accTotals, totalVal);
+            renderCategoryChart(totalVal, stockVal, btcVal, longBondVal, shortBondVal, goldVal);
 
             const riskAssetVal = stockVal + btcVal;
-            renderRatioChart(riskAssetVal, cashVal + bondVal);
-            calculateRebalancing(totalVal, riskAssetVal, cashVal + bondVal);
+            const safeAssetVal = longBondVal + shortBondVal + goldVal;
+            renderRatioChart(riskAssetVal, safeAssetVal);
+            calculateRebalancing(totalVal, riskAssetVal, safeAssetVal);
 
             renderLogsAndChart();
         }
 
-        function renderCategoryChart(totalVal, stock, btc, bond, cash){
-            const stockPct = totalVal > 0 ? ((stock / totalVal) * 100).toFixed(1) : 0;
-            const btcPct = totalVal > 0 ? ((btc / totalVal) * 100).toFixed(1) : 0;
-            const bondPct = totalVal > 0 ? ((bond / totalVal) * 100).toFixed(1) : 0;
-            const cashPct = totalVal > 0 ? ((cash / totalVal) * 100).toFixed(1) : 0;
+        function renderAccountBreakdown(accTotals, totalVal){
+            const el = document.getElementById('accountBreakdown');
+            if (currentAccount !== 'ALL') { el.style.display = 'none'; return; }
+            el.style.display = 'grid';
+            el.innerHTML = Object.keys(ACCOUNT_LABELS).map(id => {
+                const val = accTotals[id] || 0;
+                const pct = totalVal > 0 ? ((val / totalVal) * 100).toFixed(1) : '0.0';
+                return `
+                    <div class="account-chip" onclick="switchAccount('${id}')">
+                        <div class="chip-label"><span class="chip-dot" style="background:${ACCOUNT_COLORS[id]};"></span>${escapeHtml(ACCOUNT_LABELS[id])}</div>
+                        <div class="chip-val">${formatKRW(val)}</div>
+                        <div style="font-size:0.7rem; color: var(--text-muted); margin-top:2px;">${pct}%</div>
+                    </div>
+                `;
+            }).join('');
+        }
 
-            document.getElementById('legendStock').innerText = stockPct + '%';
-            document.getElementById('legendBtc').innerText = btcPct + '%';
-            document.getElementById('legendBond').innerText = bondPct + '%';
-            document.getElementById('legendCash').innerText = cashPct + '%';
+        function renderCategoryChart(totalVal, stock, btc, longBond, shortBond, gold){
+            const pct = (v) => totalVal > 0 ? ((v / totalVal) * 100).toFixed(1) : '0.0';
+
+            document.getElementById('legendStock').innerText = pct(stock) + '%';
+            document.getElementById('legendBitcoin').innerText = pct(btc) + '%';
+            document.getElementById('legendLongBond').innerText = pct(longBond) + '%';
+            document.getElementById('legendShortBond').innerText = pct(shortBond) + '%';
+            document.getElementById('legendGold').innerText = pct(gold) + '%';
 
             const ctx = document.getElementById('categoryChart').getContext('2d');
             if (categoryChartObj) categoryChartObj.destroy();
 
+            const styles = getComputedStyle(document.documentElement);
             categoryChartObj = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
-                    labels: ['주식', '비트코인', '채권', '현금'],
+                    labels: ['주식', '비트코인', '장기채권', '단기채권', '금'],
                     datasets: [{
-                        data: [stock, btc, bond, cash],
-                        backgroundColor: ['#3182f6', '#f59e0b', '#10b981', '#8b95a1'],
+                        data: [stock, btc, longBond, shortBond, gold],
+                        backgroundColor: [
+                            styles.getPropertyValue('--cat-stock').trim(),
+                            styles.getPropertyValue('--cat-bitcoin').trim(),
+                            styles.getPropertyValue('--cat-longbond').trim(),
+                            styles.getPropertyValue('--cat-shortbond').trim(),
+                            styles.getPropertyValue('--cat-gold').trim()
+                        ],
                         borderWidth: 0
                     }]
                 },
@@ -574,7 +707,16 @@
         }
 
         function calculateRebalancing(totalVal, riskVal, safeVal){
-            if (totalVal === 0) return;
+            const titleElem = document.getElementById('rebalTitle');
+            const descElem = document.getElementById('rebalDesc');
+
+            if (totalVal === 0) {
+                document.getElementById('stockRatioText').innerText = '0%';
+                document.getElementById('cashRatioText').innerText = '0%';
+                titleElem.innerText = "목표 리밸런싱 진단";
+                descElem.innerText = "데이터가 없습니다.";
+                return;
+            }
 
             const riskRatio = (riskVal / totalVal) * 100;
             const safeRatio = (safeVal / totalVal) * 100;
@@ -585,31 +727,28 @@
             const targetRisk = totalVal * 0.75;
             const diff = targetRisk - riskVal;
 
-            const titleElem = document.getElementById('rebalTitle');
-            const descElem = document.getElementById('rebalDesc');
-
             if (Math.abs(diff) < 100000) {
                 titleElem.innerText = "목표 비중 유지 중";
                 descElem.innerText = "현재 75:25 비율이 안정적으로 유지 중입니다.";
             } else if (diff > 0) {
-                titleElem.innerText = "위험자산 추가 매수 필요";
+                titleElem.innerText = "위험자산(주식·비트코인) 추가 매수 필요";
                 descElem.innerText = `약 ${formatKRW(diff)} 만큼 매수하세요.`;
             } else {
-                titleElem.innerText = "위험자산 매도 및 현금 확보 필요";
+                titleElem.innerText = "위험자산 매도 및 안전자산 확보 필요";
                 descElem.innerText = `약 ${formatKRW(Math.abs(diff))} 만큼 매도하세요.`;
             }
         }
 
-        function renderRatioChart(stock, cash){
+        function renderRatioChart(risk, safe){
             const ctx = document.getElementById('ratioChart').getContext('2d');
             if (ratioChartObj) ratioChartObj.destroy();
 
             ratioChartObj = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
-                    labels: ['위험자산', '안고자산/현금'],
+                    labels: ['위험자산(주식·비트코인)', '안전자산(채권·금)'],
                     datasets: [{
-                        data: [stock, cash],
+                        data: [risk, safe],
                         backgroundColor: ['#3182f6', '#e5e8eb'],
                         borderWidth: 0
                     }]
@@ -631,11 +770,12 @@
         }
 
         function getFilteredLogs(){
-            if (!globalLogsData) return [];
+            const logs = getVisibleLogs();
+            if (!logs) return [];
             const selectedAssetId = document.getElementById('assetFilterSelect').value;
             const now = new Date();
 
-            return globalLogsData.filter(log => {
+            return logs.filter(log => {
                 if (selectedAssetId !== 'ALL' && log.assetId !== selectedAssetId) {
                     return false;
                 }
@@ -655,7 +795,7 @@
             tbody.innerHTML = '';
 
             if (filtered.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: var(--text-muted); padding: 16px;">기록된 내용이 없습니다.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: var(--text-muted); padding: 16px;">기록된 내용이 없습니다.</td></tr>';
                 return;
             }
 
@@ -666,6 +806,7 @@
                 row.innerHTML = `
                     <td>${escapeHtml(log.date)}</td>
                     <td><strong>${escapeHtml(log.assetName)}</strong></td>
+                    <td class="col-account" style="display:${currentAccount === 'ALL' ? '' : 'none'};"><span class="acc-badge" style="background:${ACCOUNT_COLORS[log.account] || '#8b95a1'};">${escapeHtml(ACCOUNT_LABELS[log.account] || '-')}</span></td>
                     <td>${formatKRW(log.price)}</td>
                     <td>${escapeHtml(log.comment) || '-'}</td>
                     <td>
@@ -722,11 +863,12 @@
                 const assetGroups = {};
 
                 sortedChartData.forEach(l => {
-                    if (!assetGroups[l.assetName]) assetGroups[l.assetName] = {};
-                    assetGroups[l.assetName][l.date] = l.price;
+                    const key = (currentAccount === 'ALL' ? `[${ACCOUNT_LABELS[l.account] || ''}] ` : '') + l.assetName;
+                    if (!assetGroups[key]) assetGroups[key] = {};
+                    assetGroups[key][l.date] = l.price;
                 });
 
-                const colors = ['#3182f6', '#f59e0b', '#10b981', '#8b5cf6', '#f04452', '#14b8a6'];
+                const colors = ['#3182f6', '#f59e0b', '#10b981', '#8b5cf6', '#f04452', '#14b8a6', '#eab308'];
                 let colorIdx = 0;
 
                 const datasets = Object.keys(assetGroups).map(assetName => {
@@ -765,6 +907,8 @@
 
         function openAssetModal(asset = null){
             document.getElementById('assetModal').style.display = 'flex';
+            const accountSelect = document.getElementById('assetAccount');
+
             if (asset) {
                 document.getElementById('modalTitle').innerText = '자산 정보 수정';
                 document.getElementById('editAssetId').value = asset.id;
@@ -773,6 +917,8 @@
                 document.getElementById('assetTicker').value = asset.ticker;
                 document.getElementById('assetPrincipal').value = asset.principal;
                 document.getElementById('assetQuantity').value = asset.quantity;
+                accountSelect.value = asset.account;
+                accountSelect.disabled = true; // 계좌 이동은 지원하지 않음 (실수 방지)
             } else {
                 document.getElementById('modalTitle').innerText = '새 자산 추가';
                 document.getElementById('editAssetId').value = '';
@@ -781,23 +927,25 @@
                 document.getElementById('assetTicker').value = '';
                 document.getElementById('assetPrincipal').value = '';
                 document.getElementById('assetQuantity').value = '';
+                accountSelect.disabled = false;
+                accountSelect.value = (currentAccount !== 'ALL') ? currentAccount : '1';
             }
-            toggleTickerInput();
         }
 
         function openLogModal(){
-            if (globalAssetsData.length === 0) {
-                return alert("먼저 등록된 자산이 있어야 기록할 수 있습니다.");
+            const assets = getVisibleAssets();
+            if (assets.length === 0) {
+                return alert("먼저 등록된 자산이 있어야 기록할 수 있습니다. (현재 계좌 탭 기준)");
             }
             document.getElementById('logModal').style.display = 'flex';
             document.getElementById('logDate').value = new Date().toISOString().split('T')[0];
 
             const select = document.getElementById('logAssetSelect');
             select.innerHTML = '';
-            globalAssetsData.forEach(a => {
+            assets.forEach(a => {
                 const opt = document.createElement('option');
-                opt.value = a.id + '|' + a.name;
-                opt.textContent = a.name;
+                opt.value = a.id + '|' + a.name + '|' + a.account;
+                opt.textContent = (currentAccount === 'ALL' ? `[${ACCOUNT_LABELS[a.account]}] ` : '') + a.name;
                 select.appendChild(opt);
             });
             document.getElementById('logPrice').value = '';
@@ -806,6 +954,7 @@
 
         function closeModal(id){
             document.getElementById(id).style.display = 'none';
+            if (id === 'assetModal') document.getElementById('assetAccount').disabled = false;
         }
 
         // ===================== 저장 / 삭제 =====================
@@ -813,6 +962,7 @@
         async function saveAsset(){
             const id = document.getElementById('editAssetId').value;
             const name = document.getElementById('assetName').value.trim();
+            const account = document.getElementById('assetAccount').value;
 
             if (!name) return alert("자산명을 입력해 주세요.");
 
@@ -822,6 +972,7 @@
             const payload = {
                 action: id ? 'UPDATE_ASSET' : 'ADD_ASSET',
                 id: id,
+                account: account,
                 name: name,
                 category: document.getElementById('assetCategory').value,
                 ticker: document.getElementById('assetTicker').value.trim(),
@@ -845,6 +996,7 @@
 
             const payload = {
                 action: 'ADD_LOG',
+                account: assetInfo[2],
                 date: document.getElementById('logDate').value,
                 assetId: assetInfo[0],
                 assetName: assetInfo[1],
@@ -863,17 +1015,22 @@
 
         async function deleteAsset(id){
             if (!confirm('정말 이 자산을 삭제하시겠습니까?')) return;
-            const result = await postAction({ action: 'DELETE_ASSET', id: id });
+            const asset = assetsById[id];
+            const result = await postAction({ action: 'DELETE_ASSET', id: id, account: asset ? asset.account : undefined });
             if (result.status === 'success') await fetchData();
         }
 
         async function deleteLog(logId){
             if (!confirm('정말 이 기록을 삭제하시겠습니까?')) return;
-            const result = await postAction({ action: 'DELETE_LOG', logId: logId });
+            const log = globalLogsData.find(l => String(l.logId) === String(logId));
+            const result = await postAction({ action: 'DELETE_LOG', logId: logId, account: log ? log.account : undefined });
             if (result.status === 'success') await fetchData();
         }
 
-        window.addEventListener('DOMContentLoaded', loadSavedConfig);
+        window.addEventListener('DOMContentLoaded', () => {
+            loadSavedConfig();
+            switchAccount('ALL');
+        });
     </script>
 </body>
 </html>
